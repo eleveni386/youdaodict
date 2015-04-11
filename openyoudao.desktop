@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=openyoudao
+GenericName=openyoudao
+Comment=openyoudao
+Exec=/home/eleven/ownCloud/project/translate/youdaodict/src/openyoudao
+Terminal=false
+Type=Application
+StartupNotify=true
+Icon=/home/eleven/ownCloud/project/translate/youdaodict/src/youdao.png
+Categories=KDE;QT;Utility;
