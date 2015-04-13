@@ -41,7 +41,7 @@ def Html_Template(**keys):
     t = keys['query']
     basic_html = ''
     web_html = ''
-    m = '<a id="more" href="http://dict.youdao.com/search?keyfrom=selector&q={title}" target="_blank" hidefocus="true">详细>></a>'
+    m = '<a id="more" href="http://dict.youdao.com/search?keyfrom=selector&q=%s" target="_blank" hidefocus="true">详细>></a>'%t
     for b in basic_list:
         basic_html += '<p>%s</p>\n'%b
     for w in web:
@@ -55,6 +55,7 @@ class YouDaoTranslateApi():
     def __init__(self):
         self.URI='http://fanyi.youdao.com/openapi.do?type=data&doctype=jsonp&version=1.1&relatedUrl=http://fanyi.youdao.com/&keyfrom=fanyiweb&key=null&callback=YoudaoSelector.Instance.update&translate=on&{q}&ts={ts}'.format
     def query(self, word):
+        print word
         result = {}
         t = int(time.time())
         url = self.URI(q=urllib.urlencode({'q':word}), ts=t)
@@ -67,7 +68,7 @@ class YouDaoTranslateApi():
             result['basic'] = o['basic']['explains']
             phonetic = o['basic'].get('phonetic', '')
         else:
-            result['basic'] = o['translation']
+            result['basic'] = o.get('translation','')
             phonetic = ''
         if phonetic:
             result['phonetic'] = '[ %s ]'%phonetic
@@ -82,9 +83,12 @@ class YouDaoTranslateApi():
 class View():
     def __init__(self):
         self.view = webkit.WebView()
+        self.view.connect('hovering-over-link', self.link_hover)
+        self.view.connect('button-press-event', self.link_click)
         self.sw = gtk.ScrolledWindow()
         self.sw.add(self.view)
         self.sw.hide()
+        self. url = ''
 
     def open_html(self, html):
         self.view.load_html_string(html,'')
@@ -92,6 +96,14 @@ class View():
 
     def return_obj(self):
         return self.sw
+
+    def link_hover(self, title, url, data):
+        self.url = data
+
+    def link_click(self, widget, event):
+        import webbrowser
+        webbrowser.open(self.url)
+
 
 class youdao_translate_UI():
 
@@ -167,12 +179,12 @@ class youdao_translate_UI():
         
 
 if __name__ == '__main__':
-    translate_UI = youdao_translate_UI()
-    translate_UI.Loop()
-#    import os, sys
-#    pid = os.fork()
-#    if pid == 0:
-#        translate_UI = youdao_translate_UI()
-#        translate_UI.Loop()
-#    else:
-#        sys.exit(0)
+#    translate_UI = youdao_translate_UI()
+#    translate_UI.Loop()
+    import os, sys
+    pid = os.fork()
+    if pid == 0:
+        translate_UI = youdao_translate_UI()
+        translate_UI.Loop()
+    else:
+        sys.exit(0)
