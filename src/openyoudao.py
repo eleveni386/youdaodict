@@ -15,6 +15,7 @@ import Xlib.display as display
 from pyxhook import pyxhook
 import threading
 import urllib
+import dbm
 
 def HotKey(func):
     AltF8 = 74
@@ -54,15 +55,23 @@ def Html_Template(**keys):
 class YouDaoTranslateApi():
     def __init__(self):
         self.URI='http://fanyi.youdao.com/openapi.do?type=data&doctype=jsonp&version=1.1&relatedUrl=http://fanyi.youdao.com/&keyfrom=fanyiweb&key=null&callback=YoudaoSelector.Instance.update&translate=on&{q}&ts={ts}'.format
+        Home = os.environ['HOME']
+        openyoudaopath = os.path.join(Home, '.openyoudao')
+        self.dbpath = os.path.join(openyoudaopath, 'youdaocache')
+        if not os.path.exists(openyoudaopath):
+            try:
+                os.mkdir(openyoudaopath)
+            except IOError as e:
+                print e
+                sys.exit(1)
     def query(self, word):
-        print word
         result = {}
-        t = int(time.time())
-        url = self.URI(q=urllib.urlencode({'q':word}), ts=t)
-        r = requests.get(url)
-        if r.status_code != 200:
-            return 'Http Status Error , Status Code %s'%r.status_code
-        o = json.loads(r.text.replace('YoudaoSelector.Instance.update', '').replace('(', '').replace(')', '').replace(';',''))
+        r = self.local_query(word)
+        if r:
+            o = r
+        else:
+            o = self.internet_query(word)
+
         result['query'] = o['query']
         if o.has_key('basic'):
             result['basic'] = o['basic']['explains']
@@ -79,7 +88,29 @@ class YouDaoTranslateApi():
         else:
             result['web'] = ''
         return result
-        
+
+    def internet_query(self, word):
+        result = {}
+        t = int(time.time())
+        url = self.URI(q=urllib.urlencode({'q':word}), ts=t)
+        r = requests.get(url)
+        o = json.loads(r.text.replace('YoudaoSelector.Instance.update', '').replace('(', '').replace(')', '').replace(';',''))
+        self.cache_query(word, o)
+        return o
+
+    def local_query(self,word):
+        try:
+            r = dbm.open(self.dbpath, 'c')
+            return eval(r[word])
+        except:
+            return None
+        r.close()
+
+    def cache_query(self, query, ask):
+        r = dbm.open(self.dbpath, 'c')
+        r[query] = str(ask)
+        r.close()
+
 class View():
     def __init__(self):
         self.view = webkit.WebView()
