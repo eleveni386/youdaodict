@@ -163,7 +163,7 @@ class youdao_translate_UI():
         t = threading.Thread(target=HotKey, args=(self.huaci_event,))
         t.setDaemon(True)
         t.start()
-        gobject.timeout_add(1000, self.is_online)
+        gobject.timeout_add(5000, self.is_online)
 
     def _clipboard_changed(self,clipboard, event):
         if self.flags:
@@ -212,16 +212,17 @@ class youdao_translate_UI():
     def is_online(self):
         try:
             r = requests.get('http://fanyi.youdao.com')
-            if r.status_code == 200:
-                self.flags = True
-                self.statusicon.set_from_pixbuf(self.pixbuf)
-            else:
+            if r.status_code != 200:
                 self.flags = False
                 self.statusicon.set_from_pixbuf(self.pixbuf_disconnect)
+            else:
+                if self.flags:
+                    self.statusicon.set_from_pixbuf(self.pixbuf)
+                else:
+                    self.statusicon.set_from_pixbuf(self.pixbuf_stop)
         except:
             self.flags = False
             self.statusicon.set_from_pixbuf(self.pixbuf_disconnect)
-        #print time.time()
         return True
 
     def Loop(self):
