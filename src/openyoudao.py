@@ -16,6 +16,7 @@ from pyxhook import pyxhook
 import threading
 import urllib
 import dbm
+import gobject
 
 def HotKey(func):
     AltF8 = 74
@@ -64,6 +65,7 @@ class YouDaoTranslateApi():
             except IOError as e:
                 print e
                 sys.exit(1)
+
     def query(self, word):
         result = {}
         r = self.local_query(word)
@@ -143,6 +145,7 @@ class youdao_translate_UI():
         self.v = View()
         self.pixbuf = gtk.gdk.pixbuf_new_from_file('./youdao.png')
         self.pixbuf_stop = gtk.gdk.pixbuf_new_from_file('./youdao_stop.png')
+        self.pixbuf_disconnect = gtk.gdk.pixbuf_new_from_file('./youdao_disconnect.png')
         self.statusicon = gtk.StatusIcon()
         self.statusicon.set_from_pixbuf(self.pixbuf)
         self.statusicon.connect("popup-menu", self.right_click_event)
@@ -160,6 +163,7 @@ class youdao_translate_UI():
         t = threading.Thread(target=HotKey, args=(self.huaci_event,))
         t.setDaemon(True)
         t.start()
+        gobject.timeout_add(1000, self.is_online)
 
     def _clipboard_changed(self,clipboard, event):
         if self.flags:
@@ -205,13 +209,26 @@ class youdao_translate_UI():
             self.flags = True
             self.statusicon.set_from_pixbuf(self.pixbuf)
 
+    def is_online(self):
+        try:
+            r = requests.get('http://fanyi.youdao.com')
+            if r.status_code == 200:
+                self.flags = True
+                self.statusicon.set_from_pixbuf(self.pixbuf)
+            else:
+                self.flags = False
+                self.statusicon.set_from_pixbuf(self.pixbuf_disconnect)
+        except:
+            self.flags = False
+            self.statusicon.set_from_pixbuf(self.pixbuf_disconnect)
+        #print time.time()
+        return True
+
     def Loop(self):
         gtk.main()
         
 
 if __name__ == '__main__':
-#    translate_UI = youdao_translate_UI()
-#    translate_UI.Loop()
     import os, sys
     pid = os.fork()
     if pid == 0:
