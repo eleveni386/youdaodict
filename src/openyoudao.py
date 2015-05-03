@@ -17,6 +17,10 @@ import threading
 import urllib
 import dbm
 import gobject
+import os, sys
+
+Home = os.environ['HOME']
+openyoudaopath = os.path.join(Home, '.openyoudao')
 
 def HotKey(func):
     AltF8 = 74
@@ -56,8 +60,6 @@ def Html_Template(**keys):
 class YouDaoTranslateApi():
     def __init__(self):
         self.URI='http://fanyi.youdao.com/openapi.do?type=data&doctype=jsonp&version=1.1&relatedUrl=http://fanyi.youdao.com/&keyfrom=fanyiweb&key=null&callback=YoudaoSelector.Instance.update&translate=on&{q}&ts={ts}'.format
-        Home = os.environ['HOME']
-        openyoudaopath = os.path.join(Home, '.openyoudao')
         self.dbpath = os.path.join(openyoudaopath, 'youdaocache')
         if not os.path.exists(openyoudaopath):
             try:
@@ -141,13 +143,18 @@ class View():
 class youdao_translate_UI():
 
     def __init__(self):
-        self.flags = True
+        self.online = True
         self.v = View()
         self.pixbuf = gtk.gdk.pixbuf_new_from_file('./youdao.png')
         self.pixbuf_stop = gtk.gdk.pixbuf_new_from_file('./youdao_stop.png')
         self.pixbuf_disconnect = gtk.gdk.pixbuf_new_from_file('./youdao_disconnect.png')
         self.statusicon = gtk.StatusIcon()
-        self.statusicon.set_from_pixbuf(self.pixbuf)
+        if self.get_status() == 'online':
+            self.flags = True
+            self.statusicon.set_from_pixbuf(self.pixbuf)
+        elif self.get_status() == 'stop':
+            self.flags = False
+            self.statusicon.set_from_pixbuf(self.pixbuf_stop)
         self.statusicon.connect("popup-menu", self.right_click_event)
         self.clip = gtk.clipboard_get(gtk.gdk.SELECTION_PRIMARY)
         self.clip.connect("owner-change", self._clipboard_changed)
@@ -156,6 +163,7 @@ class youdao_translate_UI():
         self.w.connect('focus_out_event',self.Hide)
         self.w.set_size_request(320, 158)
         self.w.set_decorated(False)
+        #self.w.set_skip_taskbar_hint(True)
         vbox = gtk.VBox(True, 0)
         vbox.pack_start(self.v.return_obj())
         self.w.add(vbox)
@@ -163,9 +171,10 @@ class youdao_translate_UI():
         t = threading.Thread(target=HotKey, args=(self.huaci_event,))
         t.setDaemon(True)
         t.start()
-        gobject.timeout_add(5000, self.is_online)
+        gobject.timeout_add(60000, self.is_online)
 
     def _clipboard_changed(self,clipboard, event):
+        print event
         if self.flags:
             text = clipboard.wait_for_text()
             yd = YouDaoTranslateApi()
@@ -205,32 +214,50 @@ class youdao_translate_UI():
         if self.flags:
             self.flags = False
             self.statusicon.set_from_pixbuf(self.pixbuf_stop)
+            self.set_status('stop')
         else:
             self.flags = True
             self.statusicon.set_from_pixbuf(self.pixbuf)
+            self.set_status('online')
 
     def is_online(self):
         try:
             r = requests.get('http://fanyi.youdao.com')
             if r.status_code != 200:
                 self.flags = False
-                self.statusicon.set_from_pixbuf(self.pixbuf_disconnect)
+                if self.online:
+                    self.statusicon.set_from_pixbuf(self.pixbuf_disconnect)
+                self.online = False
             else:
-                if self.flags:
-                    self.statusicon.set_from_pixbuf(self.pixbuf)
-                else:
-                    self.statusicon.set_from_pixbuf(self.pixbuf_stop)
+                if not self.online:
+                    if self.get_status() == 'online':
+                        self.statusicon.set_from_pixbuf(self.pixbuf)
+                        self.flags = True
+                    elif self.get_status() == 'stop':
+                        self.statusicon.set_from_pixbuf(self.pixbuf_stop)
+                        self.flags = False
+                self.online = True
         except:
             self.flags = False
-            self.statusicon.set_from_pixbuf(self.pixbuf_disconnect)
+            if self.online:
+                self.statusicon.set_from_pixbuf(self.pixbuf_disconnect)
+            self.online = False
         return True
+
+    def set_status(self, status):
+
+        fp = open(openyoudaopath + '/status', 'w')
+        fp.write(status)
+        fp.close()
+
+    def get_status(self):
+        return open(openyoudaopath + '/status', 'r').read()
 
     def Loop(self):
         gtk.main()
         
 
 if __name__ == '__main__':
-    import os, sys
     pid = os.fork()
     if pid == 0:
         translate_UI = youdao_translate_UI()
